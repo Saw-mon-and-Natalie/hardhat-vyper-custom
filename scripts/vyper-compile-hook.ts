@@ -79,30 +79,37 @@ const preprocessAndCreateTmpFile = async (
  * @returns `compiled` a JSON object created by `Vyper` command line.
  */
 export const compileHook: ActionType<any> = async (taskArgs, _, runSuper) => {
-    // Temp paths to write preprocessed files to.
+  try {
+    // Create a tmp directory
+    tmp.dirSync({ tmpdir: ROOT_DIR, dir: "", name: "tmp"})
+  } catch (error) {
+    // Directory already exists
+  }
+
+  // Temp paths to write preprocessed files to.
 	const tmpPaths = await Promise.all(
 		taskArgs.inputPaths.map((fileName: string) => {
 			return preprocessAndCreateTmpFile(fileName);
 		})
 	);
 
-    // Save original input paths.
+  // Save original input paths.
 	const inputPaths = taskArgs.inputPaths;
 
-    // Replace input paths by temp paths.
+  // Replace input paths by temp paths.
 	taskArgs.inputPaths = tmpPaths;
 
-    // Compile tmp preprocessed Vyper contracts using the parent hook
+  // Compile tmp preprocessed Vyper contracts using the parent hook
 	const tmpCompiled = await runSuper(taskArgs);
 	
-    // Define a new compile object.
+  // Define a new compile object.
 	const compiled: {[key: string]: object} = {}
 
-    // Set the Vyper version
+  // Set the Vyper version
 	compiled.version = tmpCompiled.version
 
-    // Replace temp paths with the orginal input paths in the compiled
-    // JSON objects.
+  // Replace temp paths with the orginal input paths in the compiled
+  // JSON objects.
 	inputPaths.forEach((p: string, i: number) => {
 		const relativePath = path.relative(ROOT_DIR, p).replaceAll(path.sep, '/')
 		const relativeTmpPath = path.relative(ROOT_DIR, tmpPaths[i]).replaceAll(path.sep, '/')
@@ -110,9 +117,9 @@ export const compileHook: ActionType<any> = async (taskArgs, _, runSuper) => {
 		compiled[relativePath] = tmpCompiled[relativeTmpPath]
 	})
 
-    // Clean up temp files.
+  // Clean up temp files.
 	tmp.setGracefulCleanup()
 
-    // Return the compiled JSON object.
+  // Return the compiled JSON object.
 	return compiled;
 }
